@@ -1,0 +1,41 @@
+name: Self-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scaffold-mode:
+    name: Action runs in scaffold mode without errors
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trooth action
+        id: trooth
+        uses: ./
+        with:
+          api-key: scaffold-test-key
+          frameworks: soc2,eu-ai-act
+          fail-on: none
+          comment-on-pr: "false"
+
+      - name: Verify outputs are set
+        run: |
+          if [ -z "${{ steps.trooth.outputs.score }}" ]; then
+            echo "::error::score output was not set"
+            exit 1
+          fi
+          if [ -z "${{ steps.trooth.outputs.status }}" ]; then
+            echo "::error::status output was not set"
+            exit 1
+          fi
+          echo "Score - ${{ steps.trooth.outputs.score }}"
+          echo "Status - ${{ steps.trooth.outputs.status }}"
+          echo "Self-test passed."
