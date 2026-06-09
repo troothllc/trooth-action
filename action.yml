@@ -50,80 +50,31 @@ runs:
           echo "::error::api-key input is required. Pass via secrets.TROOTH_API_KEY."
           exit 1
         fi
+        echo "Trooth Action v0.1 - scaffold mode"
+        echo "Frameworks - ${{ inputs.frameworks }}"
+        echo "Fail on - ${{ inputs.fail-on }}"
 
     - name: Run Trooth scan
       id: scan
       shell: bash
-      env:
-        TROOTH_API_KEY: ${{ inputs.api-key }}
-        TROOTH_FRAMEWORKS: ${{ inputs.frameworks }}
-        TROOTH_FAIL_ON: ${{ inputs.fail-on }}
-        TROOTH_HOST: ${{ inputs.trooth-host }}
-        GITHUB_REPO: ${{ github.repository }}
-        GITHUB_SHA: ${{ github.sha }}
       run: |
-        echo "::group::Trooth Compliance Scan"
-        echo "Repository - $GITHUB_REPO"
-        echo "Commit - $GITHUB_SHA"
-        echo "Frameworks - ${TROOTH_FRAMEWORKS:-all}"
-        echo "Fail on - $TROOTH_FAIL_ON"
+        echo "::notice::Trooth Action is in scaffold mode through August 1, 2026. Production scans begin August 2, 2026 (EU AI Act enforcement day). Until then, this Action validates configuration and emits placeholder outputs so you can wire it into your workflow now."
+        echo "score=PENDING" >> "$GITHUB_OUTPUT"
+        echo "status=scaffold" >> "$GITHUB_OUTPUT"
+        echo "report-url=https://www.trooth.co" >> "$GITHUB_OUTPUT"
+        echo "findings-count=0" >> "$GITHUB_OUTPUT"
         echo ""
+        echo "Score - PENDING (production: August 2, 2026)"
+        echo "Status - scaffold"
+        echo "Findings - 0"
 
-        # The Trooth scan endpoint launches on August 2, 2026 (EU AI Act enforcement day).
-        # During the pre-launch window, this action runs in scaffold mode and emits placeholder outputs.
-        # When the API goes live, this script will POST to ${TROOTH_HOST}/v1/scan and stream the result.
-
-        RESPONSE=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" \
-          -X POST "${TROOTH_HOST}/v1/scan" \
-          -H "Authorization: Bearer ${TROOTH_API_KEY}" \
-          -H "Content-Type: application/json" \
-          -d "{\"repository\":\"${GITHUB_REPO}\",\"sha\":\"${GITHUB_SHA}\",\"frameworks\":\"${TROOTH_FRAMEWORKS}\"}" \
-          2>/dev/null || echo "HTTP_STATUS:000")
-
-        HTTP_STATUS=$(echo "$RESPONSE" | grep -o "HTTP_STATUS:[0-9]*" | cut -d: -f2)
-
-        if [ "$HTTP_STATUS" = "000" ] || [ "$HTTP_STATUS" = "404" ]; then
-          echo "::notice::Trooth API not yet available. Scaffold mode active. Production scans begin August 2, 2026."
-          echo "score=PENDING" >> "$GITHUB_OUTPUT"
-          echo "status=scaffold" >> "$GITHUB_OUTPUT"
-          echo "report-url=https://www.trooth.co" >> "$GITHUB_OUTPUT"
-          echo "findings-count=0" >> "$GITHUB_OUTPUT"
-        else
-          echo "$RESPONSE" | sed '$d' > /tmp/trooth-response.json
-          SCORE=$(jq -r '.score // "unknown"' /tmp/trooth-response.json 2>/dev/null)
-          STATUS=$(jq -r '.status // "unknown"' /tmp/trooth-response.json 2>/dev/null)
-          REPORT=$(jq -r '.reportUrl // ""' /tmp/trooth-response.json 2>/dev/null)
-          FINDINGS=$(jq -r '.findings.total // 0' /tmp/trooth-response.json 2>/dev/null)
-          echo "score=${SCORE}" >> "$GITHUB_OUTPUT"
-          echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
-          echo "report-url=${REPORT}" >> "$GITHUB_OUTPUT"
-          echo "findings-count=${FINDINGS}" >> "$GITHUB_OUTPUT"
-          echo "Score - ${SCORE}"
-          echo "Status - ${STATUS}"
-          echo "Findings - ${FINDINGS}"
-          if [ "${STATUS}" = "fail" ] && [ "${TROOTH_FAIL_ON}" != "none" ]; then
-            echo "::error::Trooth scan failed with severity ${TROOTH_FAIL_ON} or higher. See ${REPORT}."
-            exit 1
-          fi
-        fi
-        echo "::endgroup::"
-
-    - name: Comment on PR
-      if: github.event_name == 'pull_request' && inputs.comment-on-pr == 'true'
+    - name: Summary
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-        SCORE: ${{ steps.scan.outputs.score }}
-        STATUS: ${{ steps.scan.outputs.status }}
-        REPORT_URL: ${{ steps.scan.outputs.report-url }}
-        FINDINGS: ${{ steps.scan.outputs.findings-count }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-        REPO: ${{ github.repository }}
       run: |
-        BODY=$(printf "**Trooth Compliance Scan**\n\nScore - \`%s\`\nStatus - \`%s\`\nFindings - \`%s\`\n\n[Full report](%s)\n" \
-          "${SCORE}" "${STATUS}" "${FINDINGS}" "${REPORT_URL}")
-        curl -sS -X POST \
-          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-          -H "Content-Type: application/json" \
-          "https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments" \
-          -d "$(jq -n --arg body "$BODY" '{body: $body}')" > /dev/null || true
+        echo "## Trooth Compliance Scan" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "Status: scaffold mode (production: August 2, 2026)" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "Configure this Action now to have full compliance scans land automatically the day the Trooth API goes live." >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "See [trooth.co](https://www.trooth.co) for more." >> "$GITHUB_STEP_SUMMARY"
