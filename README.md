@@ -10,7 +10,7 @@ Run a Trooth compliance scan on every push. SOC 2, ISO 27001, EU AI Act, NIST AI
 This GitHub Action calls the Trooth API on every push or pull request, runs a compliance scan against the frameworks you configure, and surfaces the results as:
 
 - A workflow status (passes or fails based on the `fail-on` threshold)
-- A Trust Score (300 to 850)
+- A Trust Score
 - A link to the full scan report in your Trooth Public Trust Profile
 - A PR comment with the scan summary (configurable)
 
@@ -52,7 +52,7 @@ Get a free API key at [trooth.co](https://www.trooth.co) and add it to your repo
 
 | Output | Description |
 |---|---|
-| `score` | Composite Trust Score (300 to 850). |
+| `score` | Composite Trust Score. |
 | `status` | `pass` or `fail` relative to the `fail-on` input. |
 | `report-url` | URL of the full scan report. |
 | `findings-count` | Total number of findings produced by the scan. |
@@ -102,9 +102,9 @@ Use outputs in subsequent steps:
 
 | Tier | Scan cadence | What this action does |
 |---|---|---|
-| Bronze (free) | On every push | Continuous multi-pillar scan with the standard framework coverage |
+| Bronze (free) | On every push | Automated compliance scan with the standard framework coverage |
 | Silver | On every push | Adds expanded framework coverage and Slack/Discord drift webhooks |
-| Gold | On every push | Adds the full pillar engine, EU AI Act conformity workspace, and priority delivery |
+| Gold | On every push | 8-pillar framework deep verification, EU AI Act conformity attestation, priority delivery |
 
 See [trooth.co/pricing](https://www.trooth.co/pricing).
 

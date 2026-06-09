@@ -28,7 +28,7 @@ inputs:
 
 outputs:
   score:
-    description: Composite Trust Score from the scan (300 to 850 scale).
+    description: Composite Trust Score from the scan.
     value: ${{ steps.scan.outputs.score }}
   status:
     description: Pass or fail relative to the fail-on input.
