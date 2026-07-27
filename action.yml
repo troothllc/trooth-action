@@ -1,5 +1,5 @@
 name: Trooth Compliance Scan
-description: Post a Terraform plan to the Trooth preflight API and gate the workflow on the composite Trust Score. Maps findings to SOC 2, ISO 27001, EU AI Act, NIST AI RMF, and HIPAA.
+description: Scan your Terraform plan for SOC 2, ISO 27001, EU AI Act, NIST AI RMF, and HIPAA. Gate the build on your Trust Score.
 author: Trooth, LLC
 branding:
   icon: shield
