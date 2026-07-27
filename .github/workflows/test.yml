@@ -10,32 +10,45 @@ permissions:
   contents: read
 
 jobs:
-  scaffold-mode:
-    name: Action runs in scaffold mode without errors
+  preflight-guard:
+    name: Action handles a not-yet-live API without failing the build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run Trooth action
+      - name: Write a dummy Terraform plan
+        run: echo '{}' > plan.json
+
+      - name: Start a local endpoint that is not the live API
+        run: |
+          python3 -m http.server 8099 >/dev/null 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:8099/ >/dev/null 2>&1 && break
+            sleep 0.5
+          done
+
+      - name: Run the action against the not-live endpoint
         id: trooth
         uses: ./
         with:
-          api-key: scaffold-test-key
+          api-key: self-test-key
+          plan-file: plan.json
           frameworks: soc2,eu-ai-act
           fail-on: none
           comment-on-pr: "false"
+          trooth-host: http://localhost:8099
 
-      - name: Verify outputs are set
+      - name: Verify the pre-launch guard produced a pending pass
         run: |
-          if [ -z "${{ steps.trooth.outputs.score }}" ]; then
-            echo "::error::score output was not set"
+          STATUS="${{ steps.trooth.outputs.status }}"
+          VERDICT="${{ steps.trooth.outputs.verdict }}"
+          if [ "$STATUS" != "pass" ]; then
+            echo "::error::expected status=pass, got '$STATUS'"
             exit 1
           fi
-          if [ -z "${{ steps.trooth.outputs.status }}" ]; then
-            echo "::error::status output was not set"
+          if [ "$VERDICT" != "pending" ]; then
+            echo "::error::expected verdict=pending, got '$VERDICT'"
             exit 1
           fi
-          echo "Score - ${{ steps.trooth.outputs.score }}"
-          echo "Status - ${{ steps.trooth.outputs.status }}"
-          echo "Self-test passed."
+          echo "Pre-launch guard verified: status=pass, verdict=pending."
