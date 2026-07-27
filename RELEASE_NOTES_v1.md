@@ -1,4 +1,4 @@
-## Trooth Compliance Scan v1.0.0
+## Trooth Compliance Scan v1
 
 Run a Trooth compliance preflight on every push and pull request. The action posts your Terraform plan to the Trooth API, scores it against the frameworks you pick, and fails the build when findings cross the line you set.
 

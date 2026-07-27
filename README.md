@@ -1,9 +1,10 @@
 # trooth-action
 
+[![Release](https://img.shields.io/github/v/release/troothllc/trooth-action?label=release&color=D97706)](https://github.com/troothllc/trooth-action/releases)
+[![Marketplace](https://img.shields.io/badge/marketplace-trooth--action-D97706)](https://github.com/marketplace/actions/trooth-compliance-scan)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Trooth](https://img.shields.io/badge/built%20by-Trooth-D97706)](https://www.trooth.co)
 
-Run a Trooth compliance scan on every push. SOC 2, ISO 27001, EU AI Act, NIST AI RMF, and HIPAA — continuous, automated, and free for public repos at the Bronze tier.
+Run a Trooth compliance scan on every push. SOC 2, ISO 27001, EU AI Act, NIST AI RMF, and HIPAA. Continuous, automated, and free for public repos at the Bronze tier.
 
 ## What it does
 
@@ -119,9 +120,9 @@ Use outputs in subsequent steps:
 
 See [trooth.co/pricing](https://www.trooth.co/pricing).
 
-## Status during pre-launch
+## Before August 2, 2026
 
-The Trooth API begins production scans on **August 2, 2026**, the EU AI Act Article 50 enforcement date. Before that date, this Action runs in scaffold mode — it accepts your inputs, validates configuration, and emits placeholder outputs so you can wire it into your workflow now and have full scans land automatically the day the API goes live.
+Production scans begin on August 2, 2026, the EU AI Act Article 50 enforcement date. The Action calls `/v1/preflight` on every run. Wire it into your workflow now: it validates your inputs and configuration, and until the endpoint is live a not-yet-ready response resolves to a pending result instead of a failed build. Full scans land automatically the day the API goes live.
 
 ## Security
 

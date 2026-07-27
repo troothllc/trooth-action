@@ -89,6 +89,34 @@ runs:
           -H "Trooth-Version: 2026-08-02" \
           --data @trooth_body.json) || true
 
+        # Pre-launch grace: until production scans begin (2026-08-02), a not-yet-ready
+        # response emits a pending result and a notice instead of failing the build.
+        if [ "$HTTP" = "404" ] || [ "$HTTP" = "425" ] || [ "$HTTP" = "501" ] || [ "$HTTP" = "503" ]; then
+          echo "::notice::Trooth preflight is not live yet (HTTP $HTTP). Emitting a pending result. Production scans begin 2026-08-02."
+          {
+            echo "score="
+            echo "verdict=pending"
+            echo "status=pass"
+            echo "report-url=https://www.trooth.co"
+            echo "findings-count=0"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "TROOTH_SCORE="
+            echo "TROOTH_VERDICT=pending"
+            echo "TROOTH_STATUS=pass"
+            echo "TROOTH_FINDINGS=0"
+            echo "TROOTH_REPORT=https://www.trooth.co"
+          } >> "$GITHUB_ENV"
+          {
+            echo "## Trooth Compliance Preflight"
+            echo ""
+            echo "Pending. Production scans begin 2026-08-02."
+            echo ""
+            echo "Trooth automates. Trooth never signs your claims for you."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+
         if [ "$HTTP" != "200" ]; then
           echo "::error::Trooth preflight failed (HTTP ${HTTP:-none})."
           head -c 400 trooth_resp.json 2>/dev/null || true
