@@ -1,0 +1,173 @@
+name: Trooth Compliance Scan
+description: Post a Terraform plan to the Trooth preflight API and gate the workflow on the composite Trust Score. Maps findings to SOC 2, ISO 27001, EU AI Act, NIST AI RMF, and HIPAA.
+author: Trooth, LLC
+branding:
+  icon: shield
+  color: orange
+
+inputs:
+  api-key:
+    description: Your Trooth API key. Get one free at https://www.trooth.co. Pass via secrets.TROOTH_API_KEY.
+    required: true
+  plan-file:
+    description: Path to a `terraform show -json` plan file to scan. Generate with `terraform show -json tfplan > plan.json`.
+    required: true
+  frameworks:
+    description: Comma-separated frameworks to weight. Options - soc2, iso27001, eu-ai-act, nist-ai-rmf, hipaa. Default - all enabled on your tier.
+    required: false
+    default: ""
+  fail-on:
+    description: Lowest severity that fails the workflow. Options - critical, high, medium, low, none. Default - critical.
+    required: false
+    default: critical
+  comment-on-pr:
+    description: Post the scan summary as a PR comment. Default - true.
+    required: false
+    default: "true"
+  trooth-host:
+    description: Trooth API host. Override for staging or self-hosted environments. Default - https://api.trooth.co.
+    required: false
+    default: https://api.trooth.co
+  github-token:
+    description: Token used to post the PR comment. Defaults to the workflow token.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  score:
+    description: Composite Trust Score from the scan (0-100).
+    value: ${{ steps.scan.outputs.score }}
+  status:
+    description: pass or fail relative to the fail-on input.
+    value: ${{ steps.scan.outputs.status }}
+  verdict:
+    description: Raw API verdict - pass, warn, or fail.
+    value: ${{ steps.scan.outputs.verdict }}
+  report-url:
+    description: URL of the full scan report.
+    value: ${{ steps.scan.outputs.report-url }}
+  findings-count:
+    description: Total number of findings produced by the scan.
+    value: ${{ steps.scan.outputs.findings-count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.api-key }}" ]; then
+          echo "::error::api-key is required. Pass via secrets.TROOTH_API_KEY."
+          exit 1
+        fi
+        if [ ! -f "${{ inputs.plan-file }}" ]; then
+          echo "::error::plan-file not found at '${{ inputs.plan-file }}'. Generate it with: terraform show -json tfplan > plan.json"
+          exit 1
+        fi
+
+    - name: Run Trooth preflight
+      id: scan
+      shell: bash
+      env:
+        TROOTH_API_KEY: ${{ inputs.api-key }}
+        TROOTH_HOST: ${{ inputs.trooth-host }}
+        PLAN_FILE: ${{ inputs.plan-file }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        FRAMEWORKS: ${{ inputs.frameworks }}
+      run: |
+        set -euo pipefail
+
+        # Wrap the Terraform plan JSON as { plan, frameworks } and POST it to /v1/preflight.
+        jq -c --arg fw "$FRAMEWORKS" \
+          '{plan: ., frameworks: ($fw | split(",") | map(select(length>0)))}' \
+          "$PLAN_FILE" > trooth_body.json
+
+        HTTP=$(curl -sS -o trooth_resp.json -w "%{http_code}" \
+          -X POST "$TROOTH_HOST/v1/preflight" \
+          -H "Authorization: Bearer $TROOTH_API_KEY" \
+          -H "Content-Type: application/json" \
+          -H "Trooth-Version: 2026-08-02" \
+          --data @trooth_body.json) || true
+
+        if [ "$HTTP" != "200" ]; then
+          echo "::error::Trooth preflight failed (HTTP ${HTTP:-none})."
+          head -c 400 trooth_resp.json 2>/dev/null || true
+          exit 1
+        fi
+
+        SCORE=$(jq -r '.score // "null"' trooth_resp.json)
+        VERDICT=$(jq -r '.verdict // "unknown"' trooth_resp.json)
+        FINDINGS=$(jq -r '.summary.fail // 0' trooth_resp.json)
+        CRIT=$(jq -r '.summary.bySeverity.critical // 0' trooth_resp.json)
+        HIGH=$(jq -r '.summary.bySeverity.high // 0' trooth_resp.json)
+        MED=$(jq -r '.summary.bySeverity.medium // 0' trooth_resp.json)
+        LOW=$(jq -r '.summary.bySeverity.low // 0' trooth_resp.json)
+        REPORT_URL=$(jq -r '.reportUrl // .report_url // "https://www.trooth.co"' trooth_resp.json)
+
+        case "$FAIL_ON" in
+          none)     STATUS=pass ;;
+          low)      { [ $((CRIT+HIGH+MED+LOW)) -gt 0 ] && STATUS=fail; } || STATUS=pass ;;
+          medium)   { [ $((CRIT+HIGH+MED)) -gt 0 ] && STATUS=fail; } || STATUS=pass ;;
+          high)     { [ $((CRIT+HIGH)) -gt 0 ] && STATUS=fail; } || STATUS=pass ;;
+          *)        { [ "$CRIT" -gt 0 ] && STATUS=fail; } || STATUS=pass ;;
+        esac
+
+        {
+          echo "score=$SCORE"
+          echo "verdict=$VERDICT"
+          echo "status=$STATUS"
+          echo "report-url=$REPORT_URL"
+          echo "findings-count=$FINDINGS"
+        } >> "$GITHUB_OUTPUT"
+
+        {
+          echo "TROOTH_SCORE=$SCORE"
+          echo "TROOTH_VERDICT=$VERDICT"
+          echo "TROOTH_STATUS=$STATUS"
+          echo "TROOTH_FINDINGS=$FINDINGS"
+          echo "TROOTH_REPORT=$REPORT_URL"
+        } >> "$GITHUB_ENV"
+
+        {
+          echo "## Trooth Compliance Preflight"
+          echo ""
+          echo "| Metric | Value |"
+          echo "|---|---|"
+          echo "| Trust Score | $SCORE |"
+          echo "| Verdict | $VERDICT |"
+          echo "| Gate ($FAIL_ON) | $STATUS |"
+          echo "| Findings | $FINDINGS (critical $CRIT, high $HIGH, medium $MED, low $LOW) |"
+          echo ""
+          echo "Trooth automates. Trooth never signs your claims for you."
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Comment on PR
+      if: ${{ inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        {
+          echo "### Trooth Compliance Preflight"
+          echo ""
+          echo "| Metric | Value |"
+          echo "|---|---|"
+          echo "| Trust Score | ${TROOTH_SCORE} |"
+          echo "| Verdict | ${TROOTH_VERDICT} |"
+          echo "| Gate | ${TROOTH_STATUS} |"
+          echo "| Findings | ${TROOTH_FINDINGS} |"
+          echo ""
+          echo "[Full report](${TROOTH_REPORT})"
+          echo ""
+          echo "Trooth automates. Trooth never signs your claims for you."
+        } > trooth_comment.md
+        gh pr comment "${{ github.event.pull_request.number }}" --body-file trooth_comment.md || echo "::warning::Could not post PR comment (check github-token permissions: pull-requests: write)."
+
+    - name: Enforce gate
+      shell: bash
+      run: |
+        if [ "${TROOTH_STATUS}" = "fail" ]; then
+          echo "::error::Trooth gate failed: findings at or above '${{ inputs.fail-on }}' severity. Score ${TROOTH_SCORE}, verdict ${TROOTH_VERDICT}."
+          exit 1
+        fi
+        echo "Trooth gate passed. Score ${TROOTH_SCORE}, verdict ${TROOTH_VERDICT}."

@@ -1,0 +1,51 @@
+# Example Trooth Compliance workflow
+# Copy this file to your repo at .github/workflows/trooth.yml and customize.
+# Add your Trooth API key as a repository secret named TROOTH_API_KEY.
+
+name: Trooth Compliance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Run a scan every day at 06:00 UTC as a drift check
+    - cron: "0 6 * * *"
+
+permissions:
+  contents: read
+  pull-requests: write  # Required for PR comments
+
+jobs:
+  scan:
+    name: Trooth scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trooth compliance scan
+        id: trooth
+        uses: troothllc/trooth-action@v1
+        with:
+          api-key: ${{ secrets.TROOTH_API_KEY }}
+          frameworks: soc2,eu-ai-act,nist-ai-rmf
+          fail-on: critical
+          comment-on-pr: true
+
+      - name: Report Trust Score
+        if: always()
+        run: |
+          echo "Trust Score - ${{ steps.trooth.outputs.score }}"
+          echo "Status - ${{ steps.trooth.outputs.status }}"
+          echo "Findings - ${{ steps.trooth.outputs.findings-count }}"
+          echo "Report - ${{ steps.trooth.outputs.report-url }}"
+
+      - name: Upload report URL artifact
+        if: always()
+        run: echo "${{ steps.trooth.outputs.report-url }}" > trooth-report-url.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trooth-report-url
+          path: trooth-report-url.txt
