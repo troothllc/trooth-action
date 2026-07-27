@@ -4,7 +4,15 @@ All notable changes to `trooth-action` are recorded here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-08-02
+## [1.0.1] - 2026-07-27
+
+### Changed
+
+- Pre-launch grace: a not-yet-ready preflight response now resolves to a pending result with a notice instead of failing the workflow. Production scans still begin 2026-08-02.
+- Badges follow the standard row: release, Marketplace, license.
+- README describes the real `/v1/preflight` call, replacing the retired scaffold-mode note.
+
+## [1.0.0] - 2026-07-27
 
 First public release. Run a Trooth compliance preflight on every push and pull request, and gate the workflow on the result.
 
@@ -25,4 +33,5 @@ First public release. Run a Trooth compliance preflight on every push and pull r
 - Free for public repositories at the Bronze tier. Get a key at https://www.trooth.co.
 - Trooth automates. Trooth never signs your claims for you.
 
+[1.0.1]: https://github.com/troothllc/trooth-action/releases/tag/v1.0.1
 [1.0.0]: https://github.com/troothllc/trooth-action/releases/tag/v1.0.0
