@@ -4,16 +4,18 @@
 [![Marketplace](https://img.shields.io/badge/marketplace-trooth--action-D97706)](https://github.com/marketplace/actions/trooth-compliance-scan)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-Run a Trooth compliance scan on every push. SOC 2, ISO 27001, EU AI Act, NIST AI RMF, and HIPAA. Continuous, automated, and free for public repos at the Bronze tier.
+Witness your repo's security and AI posture on every push and keep your Trooth Network profile current. Scans against SOC 2, ISO 27001, the EU AI Act, NIST AI RMF, and HIPAA. Free for public repos.
 
 ## What it does
 
-This GitHub Action calls the Trooth API on every push or pull request, runs a compliance scan against the frameworks you configure, and surfaces the results as:
+This GitHub Action calls the Trooth API on every push or pull request, scans against the frameworks you configure, and surfaces the results as:
 
-- A workflow status (passes or fails based on the `fail-on` threshold)
-- A Trust Score
-- A link to the full scan report in your Trooth Public Trust Profile
-- A PR comment with the scan summary (configurable)
+| Result | What you get |
+|---|---|
+| Workflow status | Passes or fails based on the `fail-on` threshold |
+| Standing | Your composite Trust Score |
+| Report link | A link to the full scan report on your public trust record |
+| PR comment | The scan summary, posted on the pull request (configurable) |
 
 ## Quick start
 
@@ -46,15 +48,15 @@ jobs:
           plan-file: plan.json
 ```
 
-Get a free API key at [trooth.co](https://www.trooth.co) and add it to your repository as `secrets.TROOTH_API_KEY` (Settings → Secrets and variables → Actions).
+Get a free API key at [trooth.co](https://trooth.co) and add it to your repository as `secrets.TROOTH_API_KEY` (Settings, then Secrets and variables, then Actions).
 
 ## Inputs
 
 | Input | Required | Default | Description |
 |---|---|---|---|
-| `api-key` | Yes | — | Your Trooth API key. Pass via `secrets.TROOTH_API_KEY`. |
-| `plan-file` | Yes | — | Path to a `terraform show -json` plan file. |
-| `frameworks` | No | All on your tier | Comma-separated: `soc2`, `iso27001`, `eu-ai-act`, `nist-ai-rmf`, `hipaa`. |
+| `api-key` | Yes | n/a | Your Trooth API key. Pass via `secrets.TROOTH_API_KEY`. |
+| `plan-file` | Yes | n/a | Path to a `terraform show -json` plan file. |
+| `frameworks` | No | All on your plan | Comma-separated: `soc2`, `iso27001`, `eu-ai-act`, `nist-ai-rmf`, `hipaa`. |
 | `fail-on` | No | `critical` | Severity that fails the workflow: `critical`, `high`, `medium`, `low`, `none`. |
 | `comment-on-pr` | No | `true` | Post the scan summary as a PR comment. |
 | `trooth-host` | No | `https://api.trooth.co` | API host. Override for staging or self-hosted environments. |
@@ -78,7 +80,7 @@ Use outputs in subsequent steps:
     api-key: ${{ secrets.TROOTH_API_KEY }}
 
 - name: Publish badge
-  run: echo "Trust Score - ${{ steps.trooth.outputs.score }}"
+  run: echo "Trust Score ${{ steps.trooth.outputs.score }}"
 ```
 
 ## Configuration examples
@@ -92,7 +94,7 @@ Use outputs in subsequent steps:
     fail-on: critical
 ```
 
-### Scan only against EU AI Act
+### Scan only against the EU AI Act
 
 ```yaml
 - uses: troothllc/trooth-action@v1
@@ -110,19 +112,9 @@ Use outputs in subsequent steps:
     fail-on: none
 ```
 
-## Tier mapping
+## Plans
 
-| Tier | Scan cadence | What this action does |
-|---|---|---|
-| Bronze (free) | On every push | Automated compliance scan with the standard framework coverage |
-| Silver | On every push | Adds expanded framework coverage and Slack/Discord drift webhooks |
-| Gold | On every push | 8-pillar framework deep verification, EU AI Act conformity attestation, priority delivery |
-
-See [trooth.co/pricing](https://www.trooth.co/pricing).
-
-## Before August 2, 2026
-
-Production scans begin on August 2, 2026, the EU AI Act Article 50 enforcement date. The Action calls `/v1/preflight` on every run. Wire it into your workflow now: it validates your inputs and configuration, and until the endpoint is live a not-yet-ready response resolves to a pending result instead of a failed build. Full scans land automatically the day the API goes live.
+Free for public repos. Paid plans add expanded framework coverage, Slack and Discord drift webhooks, and EU AI Act conformity attestation. See [trooth.co/pricing](https://trooth.co/pricing).
 
 ## Security
 
@@ -134,6 +126,6 @@ Apache License 2.0. See [LICENSE](LICENSE).
 
 ## About Trooth
 
-Trooth provides cryptographic compliance infrastructure for AI products. Continuous monitoring against SOC 2, ISO 27001, EU AI Act, NIST AI RMF, and HIPAA. Free at Bronze.
+Trooth is the witnessed trust network for software and AI companies. A company gets witnessed once, across identity, security, privacy, and AI practices, each with a source and a date, and buyers and their AI agents read a current, signed record with no login. Get witnessed at [trooth.co/signup](https://trooth.co/signup).
 
-[trooth.co](https://www.trooth.co) · [Trust Center](https://www.trooth.co/security)
+[trooth.co](https://trooth.co) · [Security](https://trooth.co/security)
