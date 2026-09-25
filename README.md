@@ -38,7 +38,7 @@ No key, no account and no secret. `contents: read` for the checkout is the only 
 | Input | Required | Default | Description |
 |---|---|---|---|
 | `path` | No | `.` | Directory to read, relative to the workspace. |
-| `version` | No | `0.4.2` | Version of the `trooth` CLI to run from npm. Pinned on purpose. Bump it deliberately. |
+| `version` | No | the release pinned in `action.yml` | Version of the `trooth` CLI to run from npm. Pinned on purpose: the default moves only when this action is updated. Set it yourself to run a different release. |
 | `fail-on-inline-credentials` | No | `false` | Opt in: fail the step when `lint` counts one or more inline credential literals. |
 | `fail-if-nothing-read` | No | `false` | Opt in: fail the step when the directory yields no infrastructure declarations. |
 
@@ -89,7 +89,7 @@ Everything else is a summary a person reads. A successful run says the read happ
 
 ## What it reads
 
-`.tf`, `.tf.json`, Kubernetes YAML (anything carrying both `apiVersion` and `kind`), `terraform show -json` plan files and Dockerfiles. It is a declaration reader, not a full HCL parser: it matches patterns in the text of each file rather than parsing it.
+`.tf`, `.tf.json`, Kubernetes YAML (anything carrying both `apiVersion` and `kind`), `terraform show -json` plan files and Dockerfiles. It is a pattern reader, not a Terraform evaluator: variables and modules are not resolved, so a count can differ from what Terraform itself would plan. The job summary names the CLI version that did the read, and the [CLI's README](https://github.com/troothllc/trooth-cli) describes how each source is read.
 
 ## What it deliberately does not do
 
