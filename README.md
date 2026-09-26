@@ -26,10 +26,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: troothllc/trooth-action@v1
+      - uses: troothllc/trooth-action@<full commit SHA>  # v1
         with:
           path: ./infra
 ```
+
+**Pin by commit.** Replace `<full commit SHA>` with the 40-character commit that `v1` points at when you adopt it (`git ls-remote https://github.com/troothllc/trooth-action refs/tags/v1`), and let Dependabot or Renovate propose updates you review. A tag can be moved to different code; a commit cannot. `@v1` works and is what the examples below abbreviate to, but it runs whatever `v1` points at on the day of each run.
 
 No key, no account and no secret. `contents: read` for the checkout is the only permission it needs: the action writes the job summary through the runner's own file rather than through the API, so it also works on pull requests from forks.
 
@@ -38,7 +40,8 @@ No key, no account and no secret. `contents: read` for the checkout is the only 
 | Input | Required | Default | Description |
 |---|---|---|---|
 | `path` | No | `.` | Directory to read, relative to the workspace. |
-| `version` | No | the release pinned in `action.yml` | Version of the `trooth` CLI to run from npm. Pinned on purpose: the default moves only when this action is updated. Set it yourself to run a different release. |
+| `version` | No | the release pinned in `action.yml` | Version of the `trooth` CLI to run from npm. One exact release such as `0.5.0`; a range, a dist-tag such as `latest`, a URL or a path is refused before anything is installed. Pinned on purpose: the default moves only when this action is updated. |
+| `allow-incomplete` | No | `false` | Keep the step green when `lint` could not read every selected file: one was over the size limit, did not parse or could not be read, or the walk hit its file limit. The summary says the read was incomplete either way. |
 | `fail-on-inline-credentials` | No | `false` | Opt in: fail the step when `lint` counts one or more inline credential literals. |
 | `fail-if-nothing-read` | No | `false` | Opt in: fail the step when the directory yields no infrastructure declarations. |
 
@@ -46,10 +49,12 @@ No key, no account and no secret. `contents: read` for the checkout is the only 
 
 | Output | Description |
 |---|---|
-| `digest` | `sha256:` and a SHA-256 over the report's `facts` object in canonical form. The timestamp, the path and the CLI version are not part of it. The same tree read by the same CLI version produces the same digest. |
+| `facts-digest` | `sha256:` and a SHA-256 over the report's `facts` object in canonical form. An aggregate of the counts: two different trees with the same counts share it. It does not identify file contents, a repository, a commit or a deployment. |
+| `digest` | The same value as `facts-digest`, under its earlier name. Kept for existing workflows. |
+| `completeness` | `complete` or `incomplete`. |
 | `declarations-read` | How many declaration files were read. |
 | `inline-credential-literals` | How many inline credential literals were counted. A count: the literals are never printed. |
-| `report` | Path to the JSON fact document, for `actions/upload-artifact` if you want to keep it. |
+| `report` | Path to this step's own JSON fact document, for `actions/upload-artifact`. Every invocation writes into its own new directory under `RUNNER_TEMP`, so two steps in one job never overwrite each other's report. |
 
 ```yaml
 - uses: troothllc/trooth-action@v1
@@ -62,18 +67,19 @@ No key, no account and no secret. `contents: read` for the checkout is the only 
     name: trooth-lint
     path: ${{ steps.lint.outputs.report }}
 
-- run: echo "Digest ${{ steps.lint.outputs.digest }}"
+- run: echo "Facts digest ${{ steps.lint.outputs.facts-digest }}"
 ```
 
-The digest is evidence that a given state was observed, without publishing the tree it came from. Record it with the build, or in your own records.
+The facts digest tells you whether the counts changed between two runs of the same CLI version. It is not a hash of your files and does not identify a commit or a deployment, so do not record it as evidence of either.
 
 ## When the step fails
 
-Three cases, and only three.
+Four cases, and only four.
 
 1. The action could not do its job. The path does not exist, or the CLI could not be installed, did not start, or stopped before producing a report. Nothing was read, so the step fails and the reason is in the annotation.
 2. `fail-if-nothing-read` is on and the directory yielded no declarations. That usually means the action is pointed at the wrong place.
-3. `fail-on-inline-credentials` is on and the count is not zero. A credential literal in infrastructure code is unambiguous. The count is a pattern match, at most one per line, on a quoted value of eight or more characters assigned to a name such as `password`, `secret`, `token` or `api_key`, and it is only a count: the literals are not printed, so find them with your own tooling.
+3. `fail-on-inline-credentials` is on and the count is not zero. A credential literal in infrastructure code is unambiguous. The count is one per parsed key named like `password`, `secret`, `token` or `api_key` that holds a literal string of eight or more characters, and it is only a count: the literals are not printed, so find them with your own tooling.
+4. The read was incomplete and `allow-incomplete` is off. The counts describe part of the tree, and a green step would say otherwise.
 
 Everything else is a summary a person reads. A successful run says the read happened. It does not say your infrastructure is good, and it is not evidence that Trooth has ingested anything.
 
@@ -89,7 +95,7 @@ Everything else is a summary a person reads. A successful run says the read happ
 
 ## What it reads
 
-`.tf`, `.tf.json`, Kubernetes YAML (anything carrying both `apiVersion` and `kind`), `terraform show -json` plan files and Dockerfiles. It is a pattern reader, not a Terraform evaluator: variables and modules are not resolved, so a count can differ from what Terraform itself would plan. The job summary names the CLI version that did the read, and the [CLI's README](https://github.com/troothllc/trooth-cli) describes how each source is read.
+`.tf`, `.tf.json`, Kubernetes YAML (anything carrying both `apiVersion` and `kind`), `terraform show -json` plan files and Dockerfiles. Since CLI 0.5.0 every file is parsed, and a file that does not parse is reported as invalid rather than read. Nothing is evaluated: a setting that depends on a variable, a local or a module is reported as unresolved, so a count can differ from what Terraform itself would plan. The job summary names the CLI version that did the read, and the [CLI's README](https://github.com/troothllc/trooth-cli) describes how each source is read.
 
 ## What it deliberately does not do
 
@@ -99,7 +105,7 @@ These facts come from your own run on your own runner: Trooth does not witness t
 
 ## How the CLI gets there
 
-The `trooth` package is installed from npm at the pinned version into a directory under `RUNNER_TEMP` and run by path, not through `npx`. `npx` resolves a package name against the checked-out project before it asks the registry, which in a repository whose own `package.json` is named `trooth` runs a bin that was never linked and exits 127. A run in which the read never happened must not show as successful, so a run that could not install or start the CLI fails as the action's own fault, with the reason in the annotation.
+The `trooth` package is installed from npm at one exact version, with install scripts disabled, into a directory under `RUNNER_TEMP`, and run by path, not through `npx`. npm checks the tarball against the registry's SHA-512 integrity value as it installs, and the action compares the installed package's own version with the one it asked for before running it. The CLI ships an `npm-shrinkwrap.json`, so its one dependency installs at the locked version too. `npx` resolves a package name against the checked-out project before it asks the registry, which in a repository whose own `package.json` is named `trooth` runs a bin that was never linked and exits 127. A run in which the read never happened must not show as successful, so a run that could not install or start the CLI fails as the action's own fault, with the reason in the annotation.
 
 ## Links
 
