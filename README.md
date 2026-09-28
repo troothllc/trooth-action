@@ -40,7 +40,7 @@ No key, no account and no secret. `contents: read` for the checkout is the only 
 | Input | Required | Default | Description |
 |---|---|---|---|
 | `path` | No | `.` | Directory to read, relative to the workspace. |
-| `version` | No | the release pinned in `action.yml` | Version of the `trooth` CLI to run from npm. One exact release such as `0.5.0`; a range, a dist-tag such as `latest`, a URL or a path is refused before anything is installed. Pinned on purpose: the default moves only when this action is updated. |
+| `version` | No | the release pinned in `action.yml` | Version of the `trooth` CLI to run from npm. One exact release such as `0.5.1`; a range, a dist-tag such as `latest`, a URL or a path is refused before anything is installed. Pinned on purpose: the default moves only when this action is updated. |
 | `allow-incomplete` | No | `false` | Keep the step green when `lint` could not read every selected file: one was over the size limit, did not parse or could not be read, or the walk hit its file limit. The summary says the read was incomplete either way. |
 | `fail-on-inline-credentials` | No | `false` | Opt in: fail the step when `lint` counts one or more inline credential literals. |
 | `fail-if-nothing-read` | No | `false` | Opt in: fail the step when the directory yields no infrastructure declarations. |
@@ -78,7 +78,7 @@ Four cases, and only four.
 
 1. The action could not do its job. The path does not exist, or the CLI could not be installed, did not start, or stopped before producing a report. Nothing was read, so the step fails and the reason is in the annotation.
 2. `fail-if-nothing-read` is on and the directory yielded no declarations. That usually means the action is pointed at the wrong place.
-3. `fail-on-inline-credentials` is on and the count is not zero. A credential literal in infrastructure code is unambiguous. The count is one per parsed key named like `password`, `secret`, `token` or `api_key` that holds a literal string of eight or more characters, and it is only a count: the literals are not printed, so find them with your own tooling.
+3. `fail-on-inline-credentials` is on and `inline_credential_literals` is not zero. It responds to that one count and nothing else. The count is one per place a credential is written into a file, in the forms the [CLI's README](https://github.com/troothllc/trooth-cli#trooth-lint) lists: a key named like `password`, `secret`, `token` or `api_key` holding a literal value, a Kubernetes `env` name and value, a `Secret`'s data, and a Dockerfile `ENV` or `ARG` in source order. Names that are identifiers or locations (`token_endpoint`, `secret_arn`) and references (`${...}`, `valueFrom`) are not counted. It is a heuristic over names and forms: it can miss a credential stored under an unrecognized name, so zero is not proof that none is present. The literals are never printed; find them with your own tooling.
 4. The read was incomplete and `allow-incomplete` is off. The counts describe part of the tree, and a green step would say otherwise.
 
 Everything else is a summary a person reads. A successful run says the read happened. It does not say your infrastructure is good, and it is not evidence that Trooth has ingested anything.
@@ -95,7 +95,7 @@ Everything else is a summary a person reads. A successful run says the read happ
 
 ## What it reads
 
-`.tf`, `.tf.json`, Kubernetes YAML (anything carrying both `apiVersion` and `kind`), `terraform show -json` plan files and Dockerfiles. Since CLI 0.5.0 every file is parsed, and a file that does not parse is reported as invalid rather than read. Nothing is evaluated: a setting that depends on a variable, a local or a module is reported as unresolved, so a count can differ from what Terraform itself would plan. The job summary names the CLI version that did the read, and the [CLI's README](https://github.com/troothllc/trooth-cli) describes how each source is read.
+`.tf`, `.tf.json`, Kubernetes YAML (anything carrying both `apiVersion` and `kind`), `terraform show -json` plan files and Dockerfiles. Since CLI 0.5.0 every file is parsed, and a file that does not parse is reported as invalid rather than read. Since 0.5.1 tags, labels and annotations are never read as settings, and a setting credits only a store in its own module. Nothing is evaluated: a setting that depends on a variable, a local or a module is reported as unresolved, so a count can differ from what Terraform itself would plan. The job summary names the CLI version that did the read, and the [CLI's README](https://github.com/troothllc/trooth-cli) describes how each source is read.
 
 ## What it deliberately does not do
 
