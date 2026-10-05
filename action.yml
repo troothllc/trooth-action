@@ -139,13 +139,15 @@ runs:
         # named trooth (trooth-cli is one) it then runs a bin that was never
         # linked and exits 127. The self-test found that on its first run. A directory under
         # RUNNER_TEMP is also the same place on every run and every runner.
-        CLI_DIR="$RUNNER_TEMP/trooth-cli-$V"
+        # Every invocation installs into a fresh, private directory (audit V10,
+        # 2026-10-04): a fixed path was reused whenever a trooth.mjs existed there,
+        # so a file already written at that path ran in place of the registry's
+        # package. npm checks each tarball's integrity as it installs.
+        CLI_DIR="$(mktemp -d "$RUNNER_TEMP/trooth-cli-$V.XXXXXXXX")"
+        chmod 700 "$CLI_DIR"
         TROOTH_BIN="$CLI_DIR/node_modules/trooth/bin/trooth.mjs"
         set +e
-        if [ ! -f "$TROOTH_BIN" ]; then
-          mkdir -p "$CLI_DIR"
-          npm install --prefix "$CLI_DIR" --no-save --no-audit --no-fund --no-package-lock --ignore-scripts --loglevel=error "trooth@$V" >/dev/null 2> "$OUT_DIR/install.stderr"
-        fi
+        npm install --prefix "$CLI_DIR" --no-save --no-audit --no-fund --no-package-lock --ignore-scripts --loglevel=error "trooth@$V" >/dev/null 2> "$OUT_DIR/install.stderr"
         PKG="$CLI_DIR/node_modules/trooth/package.json"
         if [ -f "$PKG" ] && [ "$(node -p 'require(process.argv[1]).version' "$PKG" 2>/dev/null)" != "$V" ]; then
           printf 'trooth: the installed package is not version %s\n' "$V" > "$ERR"; TROOTH_BIN=""
